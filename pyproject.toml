@@ -1,0 +1,17 @@
+[project]
+name = "bioinf_utils"
+version = '0.1'
+
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib"
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
