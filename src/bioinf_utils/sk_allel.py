@@ -9,8 +9,6 @@ import allel
 import numpy
 import pandas
 
-from bioinf_utils import vcf
-
 GT_FIELD = "calldata/GT"
 CHROM_FIELD = "variants/CHROM"
 POS_FIELD = "variants/POS"
