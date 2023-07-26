@@ -1,10 +1,9 @@
-import config
-
 import subprocess
 from pathlib import Path
 import tempfile
 from collections import defaultdict
-import hashlib, gzip, pickle
+
+import pandas
 
 
 def prepare_blast_db(fasta_file: Path, db_type, out_dir=None, skip_if_exists=False):
@@ -51,155 +50,62 @@ TABBLAST_OUTFMT = "6 qseqid sseqid pident length mismatch gapopen qstart qend ss
 
 
 def blast_seqs(seqs, db_path, blast_program, tmp_dir=None, evalue_threshold=1e-5):
-    assert blast_program in ["blastn", "blastp", "blastx", "tblastn"]
-
     fasta_fhand = create_fasta_file(seqs, tmp_dir)
 
-    cmd = [
-        blast_program,
-        "-query",
-        fasta_fhand.name,
-        "-db",
-        str(db_path),
-        "-evalue",
-        str(evalue_threshold),
-        "-outfmt",
-        TABBLAST_OUTFMT,
-    ]
-
-    process = subprocess.run(cmd, check=False, capture_output=True)
-
-    lines = process.stdout.decode().splitlines()
-    result = defaultdict(dict)
-    for line in lines:
-        items = line.strip().split()
-        if len(items) == 14:
-            (
-                query,
-                subject,
-                identity,
-                ali_len,
-                mis,
-                gap_opens,
-                query_start,
-                query_end,
-                subject_start,
-                subject_end,
-                expect,
-                score,
-                qstrand,
-                sstrand,
-            ) = items
-        else:
-            raise RuntimeError("Wrong blast outuput")
-
-        hsp = {
-            "identity": float(identity),
-            "ali_len": int(ali_len),
-            "mis": int(mis),
-            "gap_opens": int(gap_opens),
-            "query_start": int(query_start),
-            "query_end": int(query_end),
-            "subject_start": int(subject_start),
-            "subject_end": int(subject_end),
-            "evalue": float(expect),
-            "score": float(score),
-            "query_strand": int(qstrand),
-            "subject_strand": int(sstrand),
-        }
-        try:
-            hsps = result[query][subject]
-        except KeyError:
-            hsps = []
-            result[query][subject] = hsps
-        hsps.append(hsp)
-    return result
-
-
-def filter_hsps_by_align_len(hsps, len_threshold=None):
-    if len_threshold is None:
-        return hsps
-
-    filtered_hsps = []
-    for hsp in hsps:
-        if hsp["ali_len"] >= len_threshold:
-            filtered_hsps.append(hsp)
-    return filtered_hsps
-
-
-def filter_hsps_by_identity(hsps, threshold=None):
-    if threshold is None:
-        return hsps
-
-    filtered_hsps = []
-    for hsp in hsps:
-        if hsp["identity"] >= threshold:
-            filtered_hsps.append(hsp)
-    return filtered_hsps
-
-
-def get_cdna_ids_by_blasting(
-    seq, evalue_threshold=1e-20, blast_program="blastn", cache_dir=None
-):
-    if cache_dir:
-        key = str(seq)
-        key += str(evalue_threshold)
-        key = hashlib.md5(str(key).encode()).hexdigest()
-        cache_path = cache_dir / ("blasted_cdnas" + key + ".pickle")
-        if cache_path.exists():
-            return pickle.load(gzip.open(cache_path, "rb"))
-
-    blast_db_dir = config.CACHE_DIR / "tomato_blast_db"
-
-    if blast_program in ("blastn", "blastx"):
-        db_type = "nucl"
-    elif blast_program in ("blastp", "tblastn"):
-        db_type = "prot"
-
-    res = prepare_blast_db(
-        config.CDNA_FASTA, out_dir=blast_db_dir, db_type=db_type, skip_if_exists=True
-    )
-
-    db_path = res["db_path"]
-
-    seq = {"name": "cdna", "seq": seq}
-    res = blast_seqs(
-        [seq],
-        db_path,
+    return blast_file(
+        fasta_path=fasta_fhand.name,
+        db_path=db_path,
         blast_program=blast_program,
-        tmp_dir=None,
         evalue_threshold=evalue_threshold,
     )
 
-    cdnas = [cdna_name for cdna_name in res.get("cdna", {}).keys()]
 
-    if cache_dir:
-        pickle.dump(cdnas, gzip.open(cache_path, "wb"))
+COLUMN_MAPPING = {
+    "qseqid": "query_id",
+    "sseqid": "subject_id",
+    "pident": "percent_ident",
+    "length": "alignment_length",
+    "mismatch": "num_mismatches",
+    "gapopen": "num_gapopenings",
+    "qstart": "query_start",
+    "qend": "query_end",
+    "sstart": "subject_start",
+    "send": "subject_end",
+    "evalue": "evalue",
+    "bitscore": "bitscore",
+    "qframe": "query_frame",
+    "sframe": "subject_frame",
+}
 
-    return cdnas
 
+def blast_file(
+    fasta_path,
+    db_path,
+    blast_program,
+    evalue_threshold=1e-5,
+    out_fmt=TABBLAST_OUTFMT,
+    tmp_dir=None,
+):
+    assert blast_program in ["blastn", "blastp", "blastx", "tblastn"]
 
-if __name__ == "__main__":
-    blast_db_dir = config.CACHE_DIR / "tomato_blast_db"
+    with tempfile.NamedTemporaryFile(suffix=".blast.csv", dir=tmp_dir) as blast_fhand:
+        cmd = [
+            blast_program,
+            "-query",
+            str(fasta_path),
+            "-db",
+            str(db_path),
+            "-evalue",
+            str(evalue_threshold),
+            "-outfmt",
+            out_fmt,
+            "-out",
+            blast_fhand.name,
+        ]
 
-    res = prepare_blast_db(
-        config.TOMATO_GENOME_FASTA,
-        out_dir=blast_db_dir,
-        db_type="nucl",
-        skip_if_exists=True,
-    )
+        subprocess.run(cmd, check=True, capture_output=True)
 
-    seq = "gatctcctggcagcaatggctggaaaagcttctgccattgatgtgccaggccctgaggttgatctcctggcagcaatggctggaaaatacaaggtgtacttggtgatgggtgtaattgagagagatggatacacgctatattgcacatacaaggtgtacttggtgatgggtgtaattgagagagatggatacacgctatattgcacatacaaggtgtacttggtgatgggtgtaattgagagagatggatacacgctatattgcacagtgcttttcttcgactctcagggtcactaccttgggaagcatcggaagataatgccaacagtgcttttcttcgactctcagggtcactaccttgggaagcatcggaagataatgccaacagtgcttttcttcgactctcagggtcactaccttgggaagcatcggaagataatgccaacagcgttagagcggataatctggggttttggggatggatcaacaattccagtttatgacactgcgttagagcggataatctggggttttggggatggatcaacaattccagtttatgacactgcgttagagcggataatctggggttttggggatggatcaacaattccagtttatgacactcctgttggaaaaataggtgctgcaatatgttgggagaacagaatgccacttctaaggacccctgttggaaaaataggtgctgcaatatgttgggagaacagaatgccacttctaaggacccctgttggaaaaataggtgctgcaatatgttgggagaacagaatgccacttctaaggaccgcaatgtatgctaaaggcattgagatatattgtgcacctacagctgatgctagggaagtggcaatgtatgctaaaggcattgagatatattgtgcacctacagctgatgctagggaagtggcaatgtatgctaaaggcattgagatatattgtgcacctacagctgatgctagggaagtgtgg"
-    cdnas = get_cdna_ids_by_blasting(seq, cache_dir=config.CACHE_DIR)
-
-    print(cdnas)
-
-    cdnas = get_cdna_ids_by_blasting(seq, cache_dir=config.CACHE_DIR)
-
-    print(cdnas)
-
-    seq = {
-        "name": "seq1",
-        "seq": "AGACAAGTGGTGAAGAAKAAGATGATATGCAGCAATGCATTTCACCACTTTATATAGCATGGAGTGGATTTCTCCACCTCATTTAATAGTATGAAGTGGAGGCAGCCCCCCTCTACACCTGTCCACTAAGGCCAGCCCACAATCTGATCCCTTTTAATTTTTGCCTTGAGTGGTGGGGCCCATTGGATTAAATCAATCCAAATTAGCCAC",
-    }
-    res = blast_seqs([seq], res["db_path"], "blastn")
+        blast_result = pandas.read_csv(blast_fhand.name, sep="\t")
+        columns = [COLUMN_MAPPING.get(col, col) for col in TABBLAST_OUTFMT.split()[1:]]
+        blast_result.columns = columns
+    return blast_result
