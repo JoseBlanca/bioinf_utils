@@ -3,6 +3,7 @@ import config
 from pathlib import Path
 import gzip
 import os
+from collections.abc import Sequence
 
 import h5py
 import allel
@@ -64,8 +65,15 @@ def calc_allelic_freqs(genotypes, subpop_idxs: dict[list]):
     return freqs
 
 
-def get_samples(h5):
-    return [sample.decode() for sample in get_h5(h5)[SAMPLE_FIELD][:]]
+def get_samples(h5) -> Sequence[str]:
+    samples = []
+    for sample in get_h5(h5)[SAMPLE_FIELD][:]:
+        try:
+            sample = sample.decode()
+        except AttributeError:
+            pass
+        samples.append(sample)
+    return samples
 
 
 def get_chrom_and_pos(h5):
