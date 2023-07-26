@@ -12,9 +12,6 @@ def prepare_blast_db(fasta_file: Path, db_type, out_dir=None, skip_if_exists=Fal
 
     if out_dir is None:
         out_dir = fasta_file.parent
-    print(fasta_file)
-    print(out_dir)
-    1 / 0
 
     fname = fasta_file.stem
     out_base_path = out_dir / fname
