@@ -132,6 +132,11 @@ def calc_obs_het_per_var(genotypes: allel.GenotypeArray):
     return obs_het
 
 
+def get_num_vars_in_h5(h5):
+    h5 = get_h5(h5)
+    return h5[GT_FIELD].shape[0]
+
+
 if __name__ == "__main__":
     print(get_samples(config.H5_ALLEL_CORE_SELECTION))
     res = get_snpeff_info(config.H5_ALLEL_CORE_SELECTION)
