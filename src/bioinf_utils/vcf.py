@@ -67,6 +67,7 @@ def filter_with_vcftools(
     out_path,
     samples_to_keep=None,
     chroms_and_poss_to_exclude: tuple[list[str], list[int]] = None,
+    regions_to_include: list[tuple[str, int, int]] = None,
     min_mac=0,
     tmp_dir=None,
 ):
@@ -89,6 +90,20 @@ def filter_with_vcftools(
         )
     else:
         positions_fhand = None
+
+    if regions_to_include:
+        regions_fhand = tempfile.NamedTemporaryFile(
+            suffix=".regions.bed", mode="wt", dir=tmp_dir
+        )
+        for chrom, start, end in regions_to_include:
+            regions_fhand.write(f"{chrom}\t{start}\t{end}\n")
+        regions_fhand.flush()
+        cmd.extend(
+            [
+                "--bed",
+                regions_fhand.name,
+            ]
+        )
 
     if samples_to_keep:
         samples_fhand = tempfile.NamedTemporaryFile(
