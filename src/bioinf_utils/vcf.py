@@ -119,6 +119,9 @@ def filter_with_vcftools(
     if min_mac:
         cmd.extend(["--mac", str(min_mac)])
 
+    if tmp_dir:
+        cmd.extend(["--temp", str(tmp_dir)])
+
     cmd.extend(
         [
             "--stdout",
