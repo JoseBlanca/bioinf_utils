@@ -7,6 +7,7 @@ dependencies = [
     "pandas",
     "matplotlib",
     "scikit-allel",
+    "h5py",
 ]
 
 [build-system]

@@ -1,13 +1,15 @@
 import config
 
 from pathlib import Path
+import gzip
+import os
 
 import h5py
 import allel
 import numpy
 import pandas
 
-import utils_vcf
+from bioinf_utils import vcf
 
 GT_FIELD = "calldata/GT"
 CHROM_FIELD = "variants/CHROM"
@@ -20,14 +22,22 @@ class EmptyVCFError(ValueError):
     pass
 
 
+def vcf_is_empty(vcf_path):
+    if not os.path.getsize(vcf_path):
+        return True
+    content = gzip.open(vcf_path, "rt").read().splitlines()
+    lines = [line for line in content if not line.startswith("#")]
+    return not lines
+
+
 def read_vcf(vcf_path: Path, fields=None):
     try:
         data = allel.read_vcf(str(vcf_path), fields=fields)
         if data is None:
-            if utils_vcf.vcf_is_empty(vcf_path):
+            if vcf_is_empty(vcf_path):
                 raise EmptyVCFError(f"Empty VCF: {vcf_path}")
     except RuntimeError:
-        if utils_vcf.vcf_is_empty(vcf_path):
+        if vcf_is_empty(vcf_path):
             raise EmptyVCFError(f"Empty VCF: {vcf_path}")
         raise RuntimeError(f"Error reading VCF: {vcf_path}")
     return data

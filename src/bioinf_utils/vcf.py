@@ -4,14 +4,8 @@ import gzip
 
 import allel
 
-import utils_subprocess
-import utils_sk_allel
-
-
-def vcf_is_empty(vcf_path):
-    content = gzip.open(vcf_path, "rt").read().splitlines()
-    lines = [line for line in content if not line.startswith("#")]
-    return not lines
+from bioinf_utils import subprocess, sk_allel
+from bioinf_utils.sk_allel import vcf_is_empty
 
 
 def filter_vcf_region(vcf_path, chrom, start, end, out_path):
@@ -25,18 +19,18 @@ def filter_vcf_region(vcf_path, chrom, start, end, out_path):
         ">",
         str(out_path),
     ]
-    utils_subprocess.run_in_sh_script(cmd)
+    subprocess.run_in_sh_script(cmd)
 
 
 def filter_var_by_obs_het(vcf_path, max_allowed_var_obs_het, out_path, tmp_dir=None):
-    h5 = utils_sk_allel.read_vcf(str(vcf_path))
-    genotypes = allel.GenotypeArray(h5[utils_sk_allel.GT_FIELD])
-    obs_het_per_var = utils_sk_allel.calc_obs_het_per_var(genotypes)
+    h5 = sk_allel.read_vcf(str(vcf_path))
+    genotypes = allel.GenotypeArray(h5[sk_allel.GT_FIELD])
+    obs_het_per_var = sk_allel.calc_obs_het_per_var(genotypes)
     mask = obs_het_per_var > max_allowed_var_obs_het
 
-    chroms = h5[utils_sk_allel.CHROM_FIELD][mask]
+    chroms = h5[sk_allel.CHROM_FIELD][mask]
 
-    poss = h5[utils_sk_allel.POS_FIELD][mask]
+    poss = h5[sk_allel.POS_FIELD][mask]
 
     if chroms.size:
         with tempfile.NamedTemporaryFile(
@@ -61,7 +55,7 @@ def filter_var_by_obs_het(vcf_path, max_allowed_var_obs_het, out_path, tmp_dir=N
                 ">",
                 str(out_path),
             ]
-            utils_subprocess.run_in_sh_script(cmd)
+            subprocess.run_in_sh_script(cmd)
     else:
         if os.path.exists(out_path):
             os.remove(out_path)
@@ -120,7 +114,7 @@ def filter_with_vcftools(
             str(out_path),
         ]
     )
-    utils_subprocess.run_in_sh_script(cmd)
+    subprocess.run_in_sh_script(cmd)
 
     if positions_fhand:
         positions_fhand.close()
