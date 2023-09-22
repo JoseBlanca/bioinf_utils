@@ -9,6 +9,7 @@ dependencies = [
     "scikit-allel",
     "h5py",
     "scipy",
+    "scikit-learn",
 ]
 
 [build-system]
