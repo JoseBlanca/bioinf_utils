@@ -4,8 +4,6 @@ import hashlib
 
 import numpy
 
-from variation import GT_FIELD
-
 
 def array_to_hasheable_tuple(array, subsample_size=10000):
     array_size = array.size
@@ -22,25 +20,6 @@ def array_to_hasheable_tuple(array, subsample_size=10000):
 def hash_from_tuple(tuple_):
     str_tuple = tuple(map(str, tuple_))
     return hashlib.md5(" ".join(str_tuple).encode()).hexdigest()
-
-
-def hash_variants(vars, do_not_check_data=False):
-    if vars is None:
-        return None
-    if do_not_check_data:
-        shape = vars[GT_FIELD].shape
-        data = b""
-    else:
-        shape, data = array_to_hasheable_tuple(vars[GT_FIELD])
-    key = (
-        str(vars.num_variations).encode(),
-        "%".join(vars.samples).encode(),
-        "-".join(sorted(vars.keys())).encode(),
-        " ".join(map(str, shape)).encode(),
-        data,
-    )
-    hash_ = hashlib.md5(b" ".join(key)).hexdigest()
-    return hash_
 
 
 class MissingCachedResult(RuntimeError):
