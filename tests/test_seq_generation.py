@@ -21,6 +21,6 @@ def test_generate_seqs():
 
 
 def test_reverse_complement():
-    seq = Seq(id="seq1", seq="ACTGT")
+    seq = Seq(id="seq1", seq="ACT-GT")
     seq = reverse_complement(seq)
-    assert seq.seq == "ACAGT"
+    assert seq.seq == "AC-AGT"
