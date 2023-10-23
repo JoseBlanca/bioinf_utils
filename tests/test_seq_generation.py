@@ -3,7 +3,7 @@ import random
 
 import pytest
 
-from bioinf_utils.generate_seqs import generate_random_seqs
+from bioinf_utils.seqs import generate_random_seqs, Seq, reverse_complement
 
 
 def test_generate_seqs():
@@ -18,3 +18,9 @@ def test_generate_seqs():
     seqs = list(islice(generate_random_seqs(seq_length_distrib=10, gc_content=0.1), 2))
     assert seqs[0].seq == "TTAAGAAATT"
     assert seqs[1].seq == "TTTGATTTTT"
+
+
+def test_reverse_complement():
+    seq = Seq(id="seq1", seq="ACTGT")
+    seq = reverse_complement(seq)
+    assert seq.seq == "ACAGT"

@@ -7,6 +7,24 @@ import math
 Seq = namedtuple("Seq", ["id", "seq"])
 
 NUCLEOTIDES = "ATCG"
+REVERSE_COMPLEMENT = {
+    "A": "T",
+    "T": "A",
+    "G": "C",
+    "C": "G",
+    "-": "-",
+    "R": "Y",
+    "Y": "R",
+    "S": "S",
+    "W": "W",
+    "K": "M",
+    "M": "K",
+    "B": "V",
+    "V": "B",
+    "D": "H",
+    "H": "D",
+    "N": "N",
+}
 
 
 def uniform_seq_distrib(seq_lengh: int) -> Generator[int, None, None]:
@@ -34,3 +52,15 @@ def generate_random_seqs(
         seq = "".join((random.choices(NUCLEOTIDES, weights)[0] for _ in range(seq_len)))
         id = f"seq_{idx}"
         yield Seq(id, seq)
+
+
+def reverse_complement(seq: Seq, id_modifier: Callable | None = None) -> Seq:
+    if id_modifier is None:
+        id = seq.id
+    else:
+        id = id_modifier(seq.id)
+
+    seq = Seq(
+        id=id, seq="".join((REVERSE_COMPLEMENT[nucl.upper()] for nucl in seq.seq[::-1]))
+    )
+    return seq
