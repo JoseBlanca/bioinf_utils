@@ -1,3 +1,5 @@
 .venv/
 src/bioinf_utils.egg-info/
 src/bioinf_utils/__pycache__/
+tests/__pycache__/
+.vscode/
