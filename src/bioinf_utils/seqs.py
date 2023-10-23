@@ -56,11 +56,20 @@ def generate_random_seqs(
 
 def reverse_complement(seq: Seq, id_modifier: Callable | None = None) -> Seq:
     if id_modifier is None:
-        id = seq.id
+        id = f"{seq.id}_rev"
     else:
         id = id_modifier(seq.id)
 
     seq = Seq(
         id=id, seq="".join((REVERSE_COMPLEMENT[nucl.upper()] for nucl in seq.seq[::-1]))
     )
+    return seq
+
+
+def add_seqs(seq1: Seq, seq2: Seq, id_modifier: Callable | None = None):
+    if id_modifier is None:
+        id = f"{seq1.id}+{seq2.id}"
+    else:
+        id = id_modifier(seq1.id, seq2.id)
+    seq = Seq(id=id, seq=seq1.seq + seq2.seq)
     return seq
