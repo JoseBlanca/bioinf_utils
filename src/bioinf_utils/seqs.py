@@ -91,3 +91,15 @@ def add_seqs(seq1: Seq, seq2: Seq, id_modifier: Callable | None = None):
         qual = None
     seq = Seq(id=id, seq=seq1.seq + seq2.seq, qual=qual)
     return seq
+
+
+def _create_fastq_seq_str(seq, phred_encoding=33):
+    qual = "".join([chr(q + 33) for q in seq.qual])
+    result = f"@{seq.id}\n{seq.seq}\n+\n{qual}\n"
+    return result
+
+
+def write_fastq(seqs, fhand):
+    for seq in seqs:
+        fhand.write(_create_fastq_seq_str(seq))
+    fhand.flush()

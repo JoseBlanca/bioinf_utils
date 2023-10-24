@@ -1,6 +1,7 @@
 from itertools import islice
 import random
 from functools import partial
+from io import StringIO
 
 import pytest
 
@@ -10,6 +11,7 @@ from bioinf_utils.seqs import (
     reverse_complement,
     add_seqs,
     create_qual_from_qual_list,
+    write_fastq,
 )
 
 
@@ -61,3 +63,15 @@ def test_add_seqs():
     seq = add_seqs(seq1, seq2)
     assert seq.seq == str1 + str2
     assert seq.qual == qual1 + qual2
+
+
+def test_write_fastq():
+    random.seed(42)
+    qual_generator = partial(create_qual_from_qual_list, quals=[0] * 100)
+    seq_generator = generate_random_seqs(
+        seq_length_distrib=4, qual_generator=qual_generator
+    )
+    seqs = islice(seq_generator, 2)
+    fhand = StringIO()
+    write_fastq(seqs, fhand)
+    assert fhand.getvalue() == """@seq_0\nCATA\n+\n!!!!\n@seq_1\nCCGA\n+\n!!!!\n"""
