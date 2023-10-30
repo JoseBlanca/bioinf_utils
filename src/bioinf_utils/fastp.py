@@ -38,6 +38,14 @@ class FastpReport:
         return result
 
     @property
+    def num_merged_reads(self):
+        try:
+            result = self.report["merged_and_filtered"]["total_reads"]
+        except KeyError:
+            raise ValueError("No merged reads")
+        return result
+
+    @property
     def reads1_mean_qual_per_position_before_filtering(self):
         quals = self.report["read1_before_filtering"]["quality_curves"]["mean"]
         quals = pandas.Series(quals, index=range(1, len(quals) + 1))
@@ -49,6 +57,15 @@ class FastpReport:
             quals = self.report["read2_before_filtering"]["quality_curves"]["mean"]
         except KeyError:
             raise ValueError("No r2 reads")
+        quals = pandas.Series(quals, index=range(1, len(quals) + 1))
+        return quals
+
+    @property
+    def merged_mean_qual_per_position(self):
+        try:
+            quals = self.report["merged_and_filtered"]["quality_curves"]["mean"]
+        except KeyError:
+            raise ValueError("No merged reads")
         quals = pandas.Series(quals, index=range(1, len(quals) + 1))
         return quals
 
@@ -79,6 +96,15 @@ class FastpReport:
             content = self.report["read2_before_filtering"]["content_curves"]
         except KeyError:
             raise ValueError("No r2 reads")
+        content = pandas.DataFrame(content, index=range(1, len(content["A"]) + 1))
+        return content
+
+    @property
+    def merged_nucleotide_content_per_position(self):
+        try:
+            content = self.report["merged_and_filtered"]["content_curves"]
+        except KeyError:
+            raise ValueError("No merged reads")
         content = pandas.DataFrame(content, index=range(1, len(content["A"]) + 1))
         return content
 
@@ -124,6 +150,7 @@ def generate_fastp_cmd(
     r1_path,
     out_r1_path,
     report_path,
+    html_report_path=None,
     fastp_bin_path=FASTP_BIN,
     num_threads=3,
     allow_file_overwrite=False,
@@ -139,6 +166,12 @@ def generate_fastp_cmd(
     cut_mean_quality=15,
     read_adapter_seq_r1=None,
     read_adapter_seq_r2=None,
+    merge_reads=False,
+    overlap_len_require=30,
+    overlap_diff_limit=5,
+    overlap_diff_percent_limit=20,
+    merged_path=None,
+    overlap_correction=True,
 ) -> list[str]:
     r1_path = Path(r1_path)
     out_r1_path = Path(out_r1_path)
@@ -147,75 +180,97 @@ def generate_fastp_cmd(
     if r2_path is not None:
         r2_path = Path(r2_path)
         out_r2_path = Path(out_r2_path)
+    if merged_path is not None:
+        merged_path = Path(merged_path)
+    if html_report_path is not None:
+        html_report_path = Path(html_report_path)
 
-    with NamedTemporaryFile(prefix="fastp.", suffix=".html") as html_fhand:
-        cmd = [
-            str(fastp_bin_path),
-            "-i",
-            str(r1_path),
-            "-o",
-            str(out_r1_path),
-            "--html",
-            html_fhand.name,
-        ]
+    if merge_reads:
+        out_1_param = "--out1"
+        out_2_param = "--out2"
+    else:
+        out_1_param = "-o"
+        out_2_param = "-O"
 
-        if r2_path:
-            cmd.extend(["-I", str(r2_path), "-O", str(out_r2_path)])
+    cmd = [
+        str(fastp_bin_path),
+        "-i",
+        str(r1_path),
+        out_1_param,
+        str(out_r1_path),
+    ]
 
-        if min_base_qual_for_good_pos:
-            cmd.extend(["--qualified_quality_phred", str(min_base_qual_for_good_pos)])
-            cmd.extend(
-                [
-                    "--unqualified_percent_limit",
-                    str(percent_bad_bases_for_filtering_out),
-                ]
-            )
-        if trim_front_n_bases:
-            cmd.extend(["--trim_front1", str(trim_front_n_bases)])
-        if trim_tail_n_bases:
-            cmd.extend(["--trim_tail1", str(trim_tail_n_bases)])
+    if html_report_path:
+        cmd.extend(["--html", str(html_report_path)])
 
-        if cut_tail:
-            cmd.append("--cut_tail")
-        if cut_front:
-            cmd.append("--cut_front")
-        if cut_tail or cut_front:
-            cmd.extend(
-                [
-                    "--cut_window_size",
-                    str(cut_window_size),
-                    "--cut_mean_quality",
-                    str(cut_mean_quality),
-                ]
-            )
+    if r2_path:
+        cmd.extend(["-I", str(r2_path), out_2_param, str(out_r2_path)])
 
-        if not (read_adapter_seq_r1 and read_adapter_seq_r2) and r2_path:
-            cmd.append("--detect_adapter_for_pe")
+    if merge_reads:
+        if not r2_path or not merged_path:
+            raise ValueError("To merge reads, r2 path and merged_path should be given")
+        cmd.extend(
+            [
+                "--merge",
+                "--overlap_len_require",
+                str(overlap_len_require),
+                "--overlap_diff_limit",
+                str(overlap_diff_limit),
+                "--overlap_diff_percent_limit",
+                str(overlap_diff_percent_limit),
+                "--merged_out",
+                str(merged_path),
+            ]
+        )
+        if overlap_correction:
+            cmd.append("--correction")
 
-        if read_adapter_seq_r1:
-            cmd.append(f"--adapter_sequence={read_adapter_seq_r1}")
-        if read_adapter_seq_r2:
-            cmd.append(f"--adapter_sequence_r2={read_adapter_seq_r2}")
+    if min_base_qual_for_good_pos:
+        cmd.extend(["--qualified_quality_phred", str(min_base_qual_for_good_pos)])
+        cmd.extend(
+            [
+                "--unqualified_percent_limit",
+                str(percent_bad_bases_for_filtering_out),
+            ]
+        )
+    if trim_front_n_bases:
+        cmd.extend(["--trim_front1", str(trim_front_n_bases)])
+    if trim_tail_n_bases:
+        cmd.extend(["--trim_tail1", str(trim_tail_n_bases)])
 
-        if not allow_file_overwrite:
-            cmd.append("--dont_overwrite")
+    if cut_tail:
+        cmd.append("--cut_tail")
+    if cut_front:
+        cmd.append("--cut_front")
+    if cut_tail or cut_front:
+        cmd.extend(
+            [
+                "--cut_window_size",
+                str(cut_window_size),
+                "--cut_mean_quality",
+                str(cut_mean_quality),
+            ]
+        )
 
-        cmd.extend(["--json", str(report_path)])
-        cmd.extend(["--thread", str(num_threads)])
+    if not (read_adapter_seq_r1 and read_adapter_seq_r2) and r2_path:
+        cmd.append("--detect_adapter_for_pe")
+
+    if read_adapter_seq_r1:
+        cmd.append(f"--adapter_sequence={read_adapter_seq_r1}")
+    if read_adapter_seq_r2:
+        cmd.append(f"--adapter_sequence_r2={read_adapter_seq_r2}")
+
+    if not allow_file_overwrite:
+        cmd.append("--dont_overwrite")
+
+    cmd.extend(["--json", str(report_path)])
+    cmd.extend(["--thread", str(num_threads)])
 
     return cmd
 
 
 """
 TODO
-
-fastp -i in.R1.fq.gz -I in.R2.fq.gz -o out.R1.fq.gz --dont_overwrite
--O out.R2.fq.gz
-
---merge
---correction
---merged_out
---out1 --out2
 
 
 --length_required 40

@@ -9,7 +9,6 @@ from bioinf_utils.seqs import (
     generate_random_seqs,
     create_qual_from_qual_list,
     write_fastq,
-    reverse_complement,
     add_seqs,
     Seq,
 )
@@ -32,12 +31,13 @@ def test_basic_run():
     seqs2 = islice(seq_generator, num_seqs)
 
     with (
-        NamedTemporaryFile(suffix=".r1.fastq", mode="wt") as r1_fhand,
-        NamedTemporaryFile(suffix=".r1.out.fastq") as r1_out_fhand,
-        NamedTemporaryFile(suffix=".r2.fastq", mode="wt") as r2_fhand,
-        NamedTemporaryFile(suffix=".r2.out.fastq") as r2_out_fhand,
-        NamedTemporaryFile(suffix=".report.json") as report_fhand,
-        NamedTemporaryFile(suffix=".report.json") as report2_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r1.fastq", mode="wt") as r1_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r1.out.fastq") as r1_out_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r2.fastq", mode="wt") as r2_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r2.out.fastq") as r2_out_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".report.json") as report_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".report.json") as report2_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".html") as html_report_path,
     ):
         write_fastq(seqs, r1_fhand)
         r1_fhand.flush()
@@ -48,6 +48,7 @@ def test_basic_run():
             out_r1_path=r1_out_fhand.name,
             report_path=report_fhand.name,
             allow_file_overwrite=True,
+            html_report_path=html_report_path.name,
         )
 
         run(cmd, check=True, capture_output=True)
@@ -60,6 +61,7 @@ def test_basic_run():
             out_r2_path=r2_out_fhand.name,
             report_path=report2_fhand.name,
             allow_file_overwrite=True,
+            html_report_path=html_report_path.name,
         )
 
         run(cmd, check=True, capture_output=True)
@@ -78,9 +80,10 @@ def test_filter_out_bad_qual_reads():
     seqs = islice(seq_generator, num_seqs)
 
     with (
-        NamedTemporaryFile(suffix=".r1.fastq", mode="wt") as r1_fhand,
-        NamedTemporaryFile(suffix=".r1.out.fastq") as r1_out_fhand,
-        NamedTemporaryFile(suffix=".report.json") as report_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r1.fastq", mode="wt") as r1_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r1.out.fastq") as r1_out_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".report.json") as report_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".html") as html_report_path,
     ):
         write_fastq(seqs, r1_fhand)
         r1_fhand.flush()
@@ -89,6 +92,7 @@ def test_filter_out_bad_qual_reads():
             out_r1_path=r1_out_fhand.name,
             report_path=report_fhand.name,
             allow_file_overwrite=True,
+            html_report_path=html_report_path.name,
         )
 
         run(cmd, check=True, capture_output=True)
@@ -107,9 +111,10 @@ def test_trim_n_nucleotides():
     seqs = islice(seq_generator, num_seqs)
 
     with (
-        NamedTemporaryFile(suffix=".r1.fastq", mode="wt") as r1_fhand,
-        NamedTemporaryFile(suffix=".r1.out.fastq") as r1_out_fhand,
-        NamedTemporaryFile(suffix=".report.json") as report_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r1.fastq", mode="wt") as r1_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r1.out.fastq") as r1_out_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".report.json") as report_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".html") as html_report_path,
     ):
         write_fastq(seqs, r1_fhand)
         r1_fhand.flush()
@@ -120,6 +125,7 @@ def test_trim_n_nucleotides():
             allow_file_overwrite=True,
             trim_front_n_bases=10,
             trim_tail_n_bases=5,
+            html_report_path=html_report_path.name,
         )
 
         run(cmd, check=True, capture_output=True)
@@ -138,9 +144,10 @@ def test_trim_qual():
     seqs = islice(seq_generator, num_seqs)
 
     with (
-        NamedTemporaryFile(suffix=".r1.fastq", mode="wt") as r1_fhand,
-        NamedTemporaryFile(suffix=".r1.out.fastq") as r1_out_fhand,
-        NamedTemporaryFile(suffix=".report.json") as report_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r1.fastq", mode="wt") as r1_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r1.out.fastq") as r1_out_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".report.json") as report_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".html") as html_report_path,
     ):
         write_fastq(seqs, r1_fhand)
         r1_fhand.flush()
@@ -150,6 +157,7 @@ def test_trim_qual():
             report_path=report_fhand.name,
             allow_file_overwrite=True,
             cut_tail=True,
+            html_report_path=html_report_path.name,
         )
 
         run(cmd, check=True, capture_output=True)
@@ -178,12 +186,13 @@ def test_illumina_adapter_trimming():
     seqs_r2 = [add_seqs(seq, adapter_r2) for seq in seqs_r2]
 
     with (
-        NamedTemporaryFile(suffix=".r1.fastq", mode="wt") as r1_fhand,
-        NamedTemporaryFile(suffix=".r1.out.fastq") as r1_out_fhand,
-        NamedTemporaryFile(suffix=".r2.fastq", mode="wt") as r2_fhand,
-        NamedTemporaryFile(suffix=".r2.out.fastq") as r2_out_fhand,
-        NamedTemporaryFile(suffix=".report.json") as report_fhand,
-        NamedTemporaryFile(suffix=".report.json") as report2_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r1.fastq", mode="wt") as r1_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r1.out.fastq") as r1_out_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r2.fastq", mode="wt") as r2_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r2.out.fastq") as r2_out_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".report.json") as report_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".report.json") as report2_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".html") as html_report_path,
     ):
         write_fastq(seqs_r1, r1_fhand)
         r1_fhand.flush()
@@ -194,6 +203,7 @@ def test_illumina_adapter_trimming():
             out_r1_path=r1_out_fhand.name,
             report_path=report_fhand.name,
             allow_file_overwrite=True,
+            html_report_path=html_report_path.name,
         )
 
         run(cmd, check=True, capture_output=True)
@@ -208,6 +218,7 @@ def test_illumina_adapter_trimming():
             allow_file_overwrite=True,
             read_adapter_seq_r1=DEFAULT_READ_ILLUMINA_ADAPTER_SEQ_R1,
             read_adapter_seq_r2=DEFAULT_READ_ILLUMINA_ADAPTER_SEQ_R2,
+            html_report_path=html_report_path.name,
         )
 
         run(cmd, check=True, capture_output=True)
@@ -219,3 +230,62 @@ def test_illumina_adapter_trimming():
         assert report.reads_2_mean_length_before_filtering == seq_len
         assert report.reads_1_mean_length_after_filtering == seq_len - adapter_len
         assert report.reads_2_mean_length_after_filtering == seq_len - adapter_len
+
+
+def test_overlap():
+    seq_len = 150
+    num_seqs = 100
+    qual_generator = partial(create_qual_from_qual_list, quals=[40] * seq_len)
+    seq_generator = generate_random_seqs(
+        seq_length_distrib=seq_len, qual_generator=qual_generator
+    )
+    seqs = islice(seq_generator, num_seqs)
+    seqs2 = islice(seq_generator, num_seqs)
+
+    overlap_read_r1 = "CTAGCTACTAGTCGTAGTCGATCTAGTCGATGCTGATCGTAGTCAGCTGTAGCTGATGCTAGTCGTAGCTGATCGTCATGC"
+    overlap_read_r2 = (
+        "ATCGTAGCTAGTCGTAGCTGTAGCTTAGCTAGCTGTAGTCGTAGTCAGTCGAGTCGATTCGA"
+        + "GCATGACGATCAGCTACGACTAGCATCAGCTACAGC"
+    )
+    overlap_read_r1 = Seq(
+        id="seq_r1", seq=overlap_read_r1, qual=[40] * len(overlap_read_r1)
+    )
+    overlap_read_r2 = Seq(
+        id="seq_r2", seq=overlap_read_r2, qual=[30] * len(overlap_read_r2)
+    )
+
+    seqs = list(seqs) + [overlap_read_r1]
+    seqs2 = list(seqs2) + [overlap_read_r2]
+
+    with (
+        NamedTemporaryFile(prefix="fastp.", suffix=".r1.fastq", mode="wt") as r1_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r1.out.fastq") as r1_out_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r2.fastq", mode="wt") as r2_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".r2.out.fastq") as r2_out_fhand,
+        NamedTemporaryFile(
+            prefix="fastp.", suffix=".merged.out.fastq"
+        ) as merged_out_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".report.json") as report_fhand,
+        NamedTemporaryFile(prefix="fastp.", suffix=".html") as html_report_path,
+    ):
+        write_fastq(seqs, r1_fhand)
+        r1_fhand.flush()
+        write_fastq(seqs2, r2_fhand)
+        r2_fhand.flush()
+
+        cmd = generate_fastp_cmd(
+            r1_path=r1_fhand.name,
+            r2_path=r2_fhand.name,
+            out_r1_path=r1_out_fhand.name,
+            out_r2_path=r2_out_fhand.name,
+            report_path=report_fhand.name,
+            allow_file_overwrite=True,
+            merge_reads=True,
+            merged_path=merged_out_fhand.name,
+            html_report_path=html_report_path.name,
+        )
+
+        run(cmd, check=True, capture_output=True)
+        report = FastpReport(report_fhand)
+        assert report.num_reads2_before_filtering == num_seqs + 1
+        assert report.num_merged_reads == 1
