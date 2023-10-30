@@ -173,6 +173,8 @@ def generate_fastp_cmd(
     length_required=40,
     merged_path=None,
     overlap_correction=True,
+    deduplicate=False,
+    dup_accuracy=4,
 ) -> list[str]:
     r1_path = Path(r1_path)
     out_r1_path = Path(out_r1_path)
@@ -200,8 +202,11 @@ def generate_fastp_cmd(
         out_1_param,
         str(out_r1_path),
         "--length_required",
-        str(40),
+        str(length_required),
     ]
+
+    if deduplicate:
+        cmd.extend(["--dedup", "--dup_calc_accuracy", int(dup_accuracy)])
 
     if html_report_path:
         cmd.extend(["--html", str(html_report_path)])
