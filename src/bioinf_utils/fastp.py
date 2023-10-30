@@ -170,6 +170,7 @@ def generate_fastp_cmd(
     overlap_len_require=30,
     overlap_diff_limit=5,
     overlap_diff_percent_limit=20,
+    length_required=40,
     merged_path=None,
     overlap_correction=True,
 ) -> list[str]:
@@ -198,6 +199,8 @@ def generate_fastp_cmd(
         str(r1_path),
         out_1_param,
         str(out_r1_path),
+        "--length_required",
+        str(40),
     ]
 
     if html_report_path:
@@ -274,8 +277,6 @@ TODO
 
 
 --length_required 40
-
---reads_to_process
 
 --dedup
 --dup_calc_accuracy 4
