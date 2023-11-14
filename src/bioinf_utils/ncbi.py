@@ -4,10 +4,35 @@ import xml.etree.ElementTree as ET
 
 import requests
 
+from .cache import hash_from_tuple, load_cache, save_cache
+
 NCBI_EUTILS_BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 
 
-def _fetch_bioproject_info_with_id(bioproject_id: str):
+def _get_cached_request(url, cache_dir=None):
+    print(url)
+    if cache_dir is None:
+        use_cache = False
+    else:
+        use_cache = True
+
+    if use_cache:
+        hash = hash_from_tuple((url,))
+        cache_path = cache_dir / f"cached_request.{hash}.pickle"
+
+    if use_cache and cache_path.exists():
+        content = load_cache(cache_path)
+    else:
+        response = requests.get(url)
+        assert response.status_code == 200
+        content = response.content
+        if use_cache:
+            cache_dir.mkdir(exist_ok=True)
+            save_cache(content, cache_path=cache_path)
+    return content
+
+
+def _fetch_bioproject_info_with_id(bioproject_id: str, cache_dir=None):
     if bioproject_id.lower().startswith("prj"):
         raise ValueError(
             f"Use the numeric id, not the PRJXXXX accession: {bioproject_id}"
@@ -20,9 +45,7 @@ def _fetch_bioproject_info_with_id(bioproject_id: str):
         )
 
     query = f"{NCBI_EUTILS_BASE_URL}efetch.fcgi?db=bioproject&id={bioproject_id}"
-    response = requests.get(query)
-    assert response.status_code == 200
-    xml = response.content
+    xml = _get_cached_request(query, cache_dir=cache_dir)
     xml_doc = ET.fromstring(xml)
     project_xml = xml_doc.find("DocumentSummary").find("Project")
     archive_id_tag = project_xml.find("ProjectID").find("ArchiveID")
@@ -41,11 +64,9 @@ def _fetch_bioproject_info_with_id(bioproject_id: str):
     return bioproject
 
 
-def fetch_bioproject_info(bioproject_acc: str) -> dict:
+def fetch_bioproject_info(bioproject_acc: str, cache_dir=None) -> dict:
     query = f"{NCBI_EUTILS_BASE_URL}esearch.fcgi?db=bioproject&term={bioproject_acc}[Project%20Accession]&retmode=json&retmax=1"
-    response = requests.get(query)
-    assert response.status_code == 200
-    jsons = response.content
+    jsons = _get_cached_request(query, cache_dir=cache_dir)
     jsons = jsons.decode()
     ncbi_data = json.loads(jsons)
     search_result = ncbi_data["esearchresult"]
@@ -56,7 +77,9 @@ def fetch_bioproject_info(bioproject_acc: str) -> dict:
     return bioproject
 
 
-def ask_ncbi_for_biosample_ids_in_bioproject(bioproject_id: str) -> list[str]:
+def ask_ncbi_for_biosample_ids_in_bioproject(
+    bioproject_id: str, cache_dir=None
+) -> list[str]:
     if bioproject_id.lower().startswith("prj"):
         raise ValueError(
             f"Use the numeric id, not the PRJXXXX accession: {bioproject_id}"
@@ -68,10 +91,7 @@ def ask_ncbi_for_biosample_ids_in_bioproject(bioproject_id: str) -> list[str]:
             f"The id should be an str, but all numbers (e.g. 1025377), but it was: {bioproject_id}"
         )
     query = f"{NCBI_EUTILS_BASE_URL}elink.fcgi?dbfrom=bioproject&db=biosample&id={bioproject_id}&retmode=json"
-
-    response = requests.get(query)
-    assert response.status_code == 200
-    jsons = response.content
+    jsons = _get_cached_request(query, cache_dir=cache_dir)
     search_result = json.loads(jsons)
 
     biosample_ids = set()
@@ -99,7 +119,7 @@ def generate_fastq_dump_cmd(sra_run_id, out_dir: Path):
     return cmd
 
 
-def fetch_biosample_info_with_id(biosample_id: str):
+def fetch_biosample_info_with_id(biosample_id: str, cache_dir=None):
     if biosample_id.lower().startswith("prj"):
         raise ValueError(
             f"Use the numeric id, not the SAMNXXXX accession: {biosample_id}"
@@ -112,9 +132,7 @@ def fetch_biosample_info_with_id(biosample_id: str):
         )
 
     query = f"{NCBI_EUTILS_BASE_URL}efetch.fcgi?db=biosample&id={biosample_id}"
-    response = requests.get(query)
-    assert response.status_code == 200
-    xml = response.content
+    xml = _get_cached_request(query, cache_dir=cache_dir)
     biosample_set = ET.fromstring(xml)
     biosample_xml = biosample_set.find("BioSample")
     biosample = {}
@@ -185,7 +203,7 @@ def _get_data_from_sra_experiment_package(experiment_package):
     return experiment
 
 
-def fetch_sra_info(sra_id):
+def fetch_sra_info(sra_id, cache_dir=None):
     if sra_id.lower().startswith("prj"):
         raise ValueError(f"Use the numeric id, not the SAMNXXXX accession: {sra_id}")
     try:
@@ -196,10 +214,7 @@ def fetch_sra_info(sra_id):
         )
 
     query = f"{NCBI_EUTILS_BASE_URL}efetch.fcgi?db=sra&id={sra_id}"
-
-    response = requests.get(query)
-    assert response.status_code == 200
-    xml = response.content
+    xml = _get_cached_request(query, cache_dir=cache_dir)
     xml = ET.fromstring(xml)
 
     if xml.tag != "EXPERIMENT_PACKAGE_SET":
@@ -212,12 +227,9 @@ def fetch_sra_info(sra_id):
     return {"experiments": experiments}
 
 
-def search_experiments_in_sra_with_biosample_accession(biosample_acc):
+def search_experiments_in_sra_with_biosample_accession(biosample_acc, cache_dir=None):
     query = f"{NCBI_EUTILS_BASE_URL}esearch.fcgi?db=sra&term={biosample_acc}[BioSample]&retmode=json"
-
-    response = requests.get(query)
-    assert response.status_code == 200
-    jsons = response.content
+    jsons = _get_cached_request(query, cache_dir=cache_dir)
     search_result = json.loads(jsons)
     ids = search_result["esearchresult"]["idlist"]
 
