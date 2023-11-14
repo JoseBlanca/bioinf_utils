@@ -10,7 +10,6 @@ NCBI_EUTILS_BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 
 
 def _get_cached_request(url, cache_dir=None):
-    print(url)
     if cache_dir is None:
         use_cache = False
     else:
