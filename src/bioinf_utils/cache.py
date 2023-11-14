@@ -1,6 +1,7 @@
 import gzip
 import pickle
 import hashlib
+from pathlib import Path
 
 import numpy
 
@@ -61,4 +62,28 @@ def get_result(
 
     result = funct(*args, **kwargs)
     save_cache(result, cache_path=cache_path, use_gzip=use_gzip)
+    return result
+
+
+def get_cached_result_from_dir(
+    funct,
+    cache_dir: Path,
+    args: tuple,
+    update_cache=False,
+    use_gzip=False,
+):
+    args = tuple(args)
+    hash = hash_from_tuple(args)
+
+    cache_dir.mkdir(exist_ok=True)
+
+    extension = "pickle.gz" if use_gzip else "pickle"
+
+    cache_path = cache_dir / f"{funct.__name__}.{hash}.{extension}"
+    result = get_result(
+        funct,
+        cache_path=cache_path,
+        args=args,
+        update_cache=update_cache,
+    )
     return result
